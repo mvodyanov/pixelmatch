@@ -9,14 +9,9 @@ import imgOriginal from './img/original.png';
 
 const worker = new CompareWorker();
 
-const WIDTH = 300;
-const HEIGHT = 173;
-
 function App() {
-  const [imagesData, setImagesData] = useState([]);
-
-  function convertImageToCanvas(imageID: string) {
-    const image = document.getElementById(imageID) as HTMLImageElement;
+  function imageToCanvas(imageID: string) {
+    const image = document.getElementById(imageID);
     const canvas = document.createElement('canvas');
     canvas.width = image.width;
     canvas.height = image.height;
@@ -25,62 +20,55 @@ function App() {
     return canvas;
   }
 
-  function writeResultToPage(diffContext) {
-    const canvas = document.createElement('canvas'); //  new HTMLCanvasElement();
-    // canvas.width = convertImageToCanvas("img").width;
-    // canvas.height = convertImageToCanvas("img").height;
-    canvas.width = WIDTH;
-    canvas.height = HEIGHT;
+  function canvasToUint8ClampedArray(canvas) {
+    return canvas
+      .getContext('2d')
+      .getImageData(0, 0, canvas.width, canvas.height);
+  }
+
+  function printResult(diffContext) {
+    const canvas = document.createElement('canvas');
+    canvas.width = diffContext.width;
+    canvas.height = diffContext.height;
     const ctx = canvas.getContext('2d');
     ctx.putImageData(diffContext, 0, 0);
     const result = document.getElementById('result');
-    result.appendChild(ctx.canvas);
+    result?.replaceWith(ctx.canvas);
   }
 
-  function compareImagesData(before, after) {
-    const diff = new ImageData(before.width, before.height);
+  function compareImages(imageID1, imageID2) {
+    const canvas1 = imageToCanvas(imageID1);
+    const canvas2 = imageToCanvas(imageID2);
+    const imageData1 = canvasToUint8ClampedArray(canvas1).data;
+    const imageData2 = canvasToUint8ClampedArray(canvas2).data;
 
-    pixelmatch(
-      before.data,
-      after.data,
-      diff.data,
-      before.width,
-      before.height,
+    worker.postMessage(
       {
-        threshold: 0.1,
+        type: 'compareImages',
+        imageData1,
+        imageData2,
+        width: canvas1.width,
+        height: canvas2.height,
       },
+      [imageData1.buffer, imageData2.buffer],
     );
-
-    return diff;
+    worker.onmessage = ({ data }) => {
+      printResult(data.diff);
+    };
   }
-
-  function onLoad(e) {
-    const { id } = e.target;
-    const canvas = convertImageToCanvas(id);
-    setImagesData([
-      ...imagesData,
-      canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height),
-    ]);
-  }
-
-  useEffect(() => {
-    if (imagesData.length === 2) {
-      const diff = compareImagesData(imagesData[0], imagesData[1]);
-      writeResultToPage(diff);
-      worker.postMessage('cinsss');
-      worker.onmessage = ((event) => {
-        console.info(event.data);
-      });
-    }
-  }, [imagesData]);
 
   return (
     <div className="App">
       <header className="App-header">
-        <img alt="original" id="original" src={imgOriginal} onLoad={onLoad} />
-        <img alt="fixed" id="fixed" src={imgFixed} onLoad={onLoad} />
-        button
-        <p id="result">diff:</p>
+        <img alt="original" id="original" src={imgOriginal} />
+        <img alt="fixed" id="fixed" src={imgFixed} />
+        <button
+          type="button"
+          onClick={() => compareImages('original', 'fixed')}
+        >
+          Compare
+        </button>
+        <p id="result" />
       </header>
     </div>
   );
