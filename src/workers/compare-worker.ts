@@ -1,17 +1,26 @@
-// @ts-nocheck
 import pixelmatch from 'pixelmatch';
 
 /* eslint-disable no-restricted-globals */
 const ctx: Worker = self as any;
 
 function compareImagesData({
-  imageData1, imageData2, width, height,
+  imageData1,
+  imageData2,
+  width,
+  height,
+}: {
+  imageData1: Uint8ClampedArray;
+  imageData2: Uint8ClampedArray;
+  width: number;
+  height: number;
 }) {
-  const diff = new ImageData(width, height);
-  pixelmatch(imageData1, imageData2, diff.data, width, height, {
+  const diff = new Uint8Array(imageData1);
+  pixelmatch(imageData1, imageData2, diff, width, height, {
     threshold: 0.1,
   });
-  return diff;
+
+  const imageData = new ImageData(new Uint8ClampedArray(diff), width, height);
+  return imageData;
 }
 
 ctx.addEventListener('message', (event) => {

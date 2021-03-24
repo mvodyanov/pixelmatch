@@ -1,9 +1,6 @@
-// @ts-nocheck
 import './App.css';
-import { useEffect, useState } from 'react';
 // eslint-disable-next-line import/no-unresolved
 import CompareWorker from 'worker-loader!./workers/compare-worker';
-import pixelmatch from 'pixelmatch';
 import imgFixed from './img/fixed.png';
 import imgOriginal from './img/original.png';
 
@@ -11,32 +8,32 @@ const worker = new CompareWorker();
 
 function App() {
   function imageToCanvas(imageID: string) {
-    const image = document.getElementById(imageID);
+    const image = (document.getElementById(imageID) as HTMLImageElement);
     const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
     canvas.width = image.width;
     canvas.height = image.height;
-    canvas.getContext('2d')!.drawImage(image!, 0, 0);
-    // image.style = "width: 400px";
+    ctx.drawImage(image, 0, 0);
     return canvas;
   }
 
-  function canvasToUint8ClampedArray(canvas) {
+  function canvasToUint8ClampedArray(canvas: HTMLCanvasElement) {
     return canvas
-      .getContext('2d')
+      .getContext('2d')!
       .getImageData(0, 0, canvas.width, canvas.height);
   }
 
-  function printResult(diffContext) {
+  function printResult(diffContext: ImageData) {
     const canvas = document.createElement('canvas');
     canvas.width = diffContext.width;
     canvas.height = diffContext.height;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d')!;
     ctx.putImageData(diffContext, 0, 0);
     const result = document.getElementById('result');
     result?.replaceWith(ctx.canvas);
   }
 
-  function compareImages(imageID1, imageID2) {
+  function compareImages(imageID1: string, imageID2: string) {
     const canvas1 = imageToCanvas(imageID1);
     const canvas2 = imageToCanvas(imageID2);
     const imageData1 = canvasToUint8ClampedArray(canvas1).data;
