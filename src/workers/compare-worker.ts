@@ -15,12 +15,11 @@ const compareImagesData = ({
   height: number;
 }) => {
   const diff = new Uint8Array(imageData1);
-  pixelmatch(imageData1, imageData2, diff, width, height, {
+  const diffPixelsCount = pixelmatch(imageData1, imageData2, diff, width, height, {
     threshold: 0.1,
   });
-
-  const imageData = new ImageData(new Uint8ClampedArray(diff), width, height);
-  return imageData;
+  const diffImageData = new ImageData(new Uint8ClampedArray(diff), width, height);
+  return { diffImageData, diffPixelsCount };
 };
 
 ctx.addEventListener('message', (event) => {
@@ -28,13 +27,14 @@ ctx.addEventListener('message', (event) => {
   switch (data.type) {
     case 'compareImages':
       // eslint-disable-next-line no-case-declarations
-      const diff = compareImagesData(data);
+      const { diffImageData, diffPixelsCount } = compareImagesData(data);
       ctx.postMessage(
         {
           type: 'compareImagesSuccess',
-          diff,
+          diffImageData,
+          diffPixelsCount,
         },
-        [diff.data.buffer],
+        [diffImageData.data.buffer],
       );
       break;
     default:
