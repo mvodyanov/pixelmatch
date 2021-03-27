@@ -1,12 +1,15 @@
 import './App.css';
 // eslint-disable-next-line import/no-unresolved
 import CompareWorker from 'worker-loader!./workers/compare-worker';
+import { useRef, useState } from 'react';
 import imgFixed from './img/fixed.png';
 import imgOriginal from './img/original.png';
 
 const worker = new CompareWorker();
 
 function App() {
+  const [errorText, setErrorText] = useState<string | null>('');
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageToCanvas = (imageID: string) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
@@ -20,20 +23,14 @@ function App() {
 
   const canvasToUint8ClampedArray = (canvas: HTMLCanvasElement) => canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height);
 
-  const printResult = (diffContext: ImageData | string) => {
-    const result = document.getElementById('result')!;
+  const printResult = (diffContext: ImageData) => {
+    if (!canvasRef.current) return setErrorText('no canvas element');
+    const ctx = canvasRef.current.getContext('2d')!;
 
-    if (typeof diffContext === 'string') {
-      result?.replaceWith(diffContext);
-    } else {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d')!;
-
-      canvas.width = diffContext.width;
-      canvas.height = diffContext.height;
-      ctx.putImageData(diffContext, 0, 0);
-      result.replaceWith(ctx.canvas);
-    }
+    canvasRef.current.width = diffContext.width;
+    canvasRef.current.height = diffContext.height;
+    ctx.putImageData(diffContext, 0, 0);
+    return false;
   };
 
   const compareImages = (imageID1: string, imageID2: string) => {
@@ -53,12 +50,14 @@ function App() {
         },
         [imageData1.buffer, imageData2.buffer],
       );
-      worker.onmessage = ({ data: { diffImageData, diffPixelsCount } }) => {
-        printResult(diffImageData);
-        return diffPixelsCount === 0;
+      worker.onmessage = ({ data: { diffImageData, diffPixelsCount, type } }) => {
+        if (type === 'compareImagesSuccess') {
+          printResult(diffImageData);
+          return diffPixelsCount === 0;
+        }
       };
     } else {
-      printResult('images sizes are different');
+      setErrorText('images sizes are different');
       return false;
     }
   };
@@ -74,7 +73,8 @@ function App() {
         >
           Compare
         </button>
-        <p id="result" />
+        <canvas ref={canvasRef} />
+        {errorText}
       </header>
     </div>
   );
