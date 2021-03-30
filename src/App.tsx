@@ -2,14 +2,18 @@ import './App.css';
 // eslint-disable-next-line import/no-unresolved
 import CompareWorker from 'worker-loader!./workers/compare-worker';
 import { useRef, useState } from 'react';
-import imgFixed from './img/fixed.png';
-import imgOriginal from './img/original.png';
-import { canvasToUint8ClampedArray, imageToCanvas } from './utils';
+
+import {
+  getImageData,
+  imageToUint8ClampedArray,
+} from './utils';
+import Drop from './Drop';
 
 const worker = new CompareWorker();
 
 function App() {
-  const [errorText, setErrorText] = useState<string | null>('');
+  const [images, setImages] = useState<HTMLImageElement[]>([]);
+  const [errorText, setErrorText] = useState<any>('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const printResult = (diffContext: ImageData) => {
@@ -22,54 +26,69 @@ function App() {
     return false;
   };
 
-  const compareImages = (imageID1: string, imageID2: string) => {
-    const canvas1 = imageToCanvas(
-      document.getElementById(imageID1) as HTMLImageElement,
-    );
-    const canvas2 = imageToCanvas(
-      document.getElementById(imageID2) as HTMLImageElement,
-    );
-    if (canvas1.width === canvas2.width && canvas1.height === canvas2.height) {
-      const imageData1 = canvasToUint8ClampedArray(canvas1).data;
-      const imageData2 = canvasToUint8ClampedArray(canvas2).data;
-
-      worker.postMessage(
-        {
-          type: 'compareImages',
-          imageData1,
-          imageData2,
-          width: canvas1.width,
-          height: canvas2.height,
-        },
-        [imageData1.buffer, imageData2.buffer],
-      );
-      worker.onmessage = ({
-        data: { diffImageData, diffPixelsCount, type },
-      }) => {
-        if (type === 'compareImagesSuccess') {
-          printResult(diffImageData);
-          return diffPixelsCount === 0;
-        }
-      };
-    } else {
-      setErrorText('images sizes are different');
+  const compareImages = (image1: HTMLImageElement, image2: HTMLImageElement) => {
+    setErrorText('');
+    if (!image1 || !image2) {
+      setErrorText('2 images important');
+      return false;
     }
+    if (
+      image1.width !== image2.width
+      && image1.height !== image2.height
+    ) {
+      setErrorText('images sizes are different');
+      return false;
+    }
+
+    const imageData1 = imageToUint8ClampedArray(image1);
+    const imageData2 = imageToUint8ClampedArray(image2);
+    worker.postMessage(
+      {
+        type: 'compareImages',
+        imageData1,
+        imageData2,
+        width: image1.width,
+        height: image1.height,
+      },
+      [imageData1.buffer, imageData2.buffer],
+    );
+    worker.onmessage = ({
+      data: { diffImageData, diffPixelsCount, type },
+    }) => {
+      if (type === 'compareImagesSuccess') {
+        printResult(diffImageData);
+        return diffPixelsCount === 0;
+      }
+    };
     return false;
+  };
+
+  const onDrop = async (file: File, index: number) => {
+    const image = await getImageData(file);
+
+    const newImages = [...images];
+    newImages[index] = image;
+    setImages(newImages);
   };
 
   return (
     <div className="App">
       <header className="App-header">
-        <img alt="original" id="original" src={imgOriginal} />
-        <img alt="fixed" id="fixed" src={imgFixed} />
+        {/* <img alt="original" id="original" src={imgOriginal} />
+        <img alt="fixed" id="fixed" src={imgFixed} /> */}
+
+        <div className="dropZone">
+          <Drop onDrop={onDrop} images={images} index={0} />
+          <Drop onDrop={onDrop} images={images} index={1} />
+        </div>
         <button
           type="button"
-          onClick={() => compareImages('original', 'fixed')}
+          onClick={() => compareImages(images[0], images[1])}
         >
           Compare
         </button>
-        <canvas ref={canvasRef} />
         {errorText}
+        <canvas ref={canvasRef} />
       </header>
     </div>
   );

@@ -14,7 +14,9 @@ type CompareData = {
 const getCompareFromCache = async (data: CompareData) => {
   const { width, height } = data;
   try {
-    const response = await caches.match(new Request(JSON.stringify(data)));
+    const response = await caches.match(
+      new Request(JSON.stringify(data).slice(-999999)),
+    );
     const diff = await response?.arrayBuffer()!;
     const imageData = new ImageData(new Uint8ClampedArray(diff), width, height);
     console.info('getCompareFromCache');
@@ -45,9 +47,11 @@ const compareImagesData = (data: CompareData) => {
     width,
     height,
   );
-
   caches.open('v1').then((cache) => {
-    cache.put(new Request(JSON.stringify(data)), new Response(diff));
+    cache.put(
+      new Request(new Request(JSON.stringify(data).slice(-999999))),
+      new Response(diff),
+    );
   });
   return diffImageData;
 };
